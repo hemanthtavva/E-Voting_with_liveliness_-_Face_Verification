@@ -24,3 +24,11 @@ dist-ssr
 *.sw?
 .env
 .bolt/
+
+# Data folder (large datasets)
+data/
+
+# Model weights
+*.pth
+*.onnx
+models/
