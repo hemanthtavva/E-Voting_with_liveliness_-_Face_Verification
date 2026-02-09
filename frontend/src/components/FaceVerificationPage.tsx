@@ -2,13 +2,26 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Camera, CheckCircle, AlertCircle, Lightbulb } from 'lucide-react';
 import IndianFlagVotingLogo from './IndianFlagVotingLogo';
 
+import { api } from '../services/api';
+
+interface VerificationResult {
+  constituencyNo: number;
+  voterId: string;
+  token: string;
+}
+
+interface AlreadyVotedInfo {
+  votedAt: string;
+}
+
 interface FaceVerificationPageProps {
-  onSuccess: () => void;
+  aadhaar: string;
+  onSuccess: (data: VerificationResult) => void;
   onBack: () => void;
 }
 
-const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, onBack }) => {
-  const [step, setStep] = useState<'instructions' | 'capture' | 'processing'>('instructions');
+const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ aadhaar, onSuccess, onBack }) => {
+  const [step, setStep] = useState<'instructions' | 'capture' | 'processing' | 'already_voted' | 'spoof_detected' | 'face_not_matched'>('instructions');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string>('');
@@ -17,6 +30,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [alreadyVotedInfo, setAlreadyVotedInfo] = useState<AlreadyVotedInfo | null>(null);
 
   useEffect(() => {
     return () => {
@@ -50,23 +64,23 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
       setError('');
       setCameraReady(false);
       console.log('Requesting camera access...');
-      
+
       // Stop any existing stream first
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         setStream(null);
       }
-      
+
       // Check if video element is available
       if (!videoRef.current) {
         console.error('Video element not found in DOM');
         setError('Camera interface not ready. Please try again in a moment.');
         return;
       }
-      
+
       const constraints = {
-        video: { 
-          width: { ideal: 640, min: 320, max: 1280 }, 
+        video: {
+          width: { ideal: 640, min: 320, max: 1280 },
           height: { ideal: 480, min: 240, max: 720 },
           facingMode: 'user'
         },
@@ -75,57 +89,18 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
 
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('Camera access granted');
-      
+
       // Double check video element is still available
       if (videoRef.current) {
-        // Set up event handlers before assigning the stream
         const video = videoRef.current;
-        
-        const handleLoadedMetadata = () => {
-          console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
-          
-          // Ensure video has valid dimensions
-          if (video.videoWidth > 0 && video.videoHeight > 0) {
-            video.play()
-              .then(() => {
-                console.log('Video playing successfully');
-                setCameraReady(true);
-              })
-              .catch(err => {
-                console.error('Error playing video:', err);
-                setError('Failed to start video playback. Please try again.');
-              });
-          } else {
-            console.error('Invalid video dimensions');
-            setError('Camera initialization failed. Please try again.');
-          }
+
+        video.onloadedmetadata = () => {
+          video.play().then(() => setCameraReady(true)).catch(console.error);
         };
 
-        const handleError = (err: any) => {
-          console.error('Video error:', err);
-          setError('Video playback error occurred.');
-        };
-
-        const handleCanPlay = () => {
-          console.log('Video can play');
-        };
-
-        // Remove existing event listeners
-        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        video.removeEventListener('error', handleError);
-        video.removeEventListener('canplay', handleCanPlay);
-        
-        // Add event listeners
-        video.addEventListener('loadedmetadata', handleLoadedMetadata);
-        video.addEventListener('error', handleError);
-        video.addEventListener('canplay', handleCanPlay);
-        
         // Assign the stream
         video.srcObject = mediaStream;
         setStream(mediaStream);
-        
-        // Force load if needed
-        video.load();
       } else {
         // Clean up the stream if video element is not available
         mediaStream.getTracks().forEach(track => track.stop());
@@ -134,7 +109,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
     } catch (err) {
       console.error('Camera access error:', err);
       let errorMessage = 'Unable to access camera. ';
-      
+
       if (err instanceof Error) {
         if (err.name === 'NotAllowedError') {
           errorMessage += 'Please allow camera permissions in your browser and try again.';
@@ -150,13 +125,13 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
           errorMessage += `Error: ${err.message}. Please check permissions and try again.`;
         }
       }
-      
+
       setError(errorMessage);
       setStep('instructions');
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current || !cameraReady) {
       setError('Camera not ready. Please wait for the camera to load and try again.');
       return;
@@ -164,73 +139,78 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
 
     const canvas = canvasRef.current;
     const video = videoRef.current;
-    const context = canvas.getContext('2d');
-    
+
     // Ensure video is playing and has valid dimensions
-    if (!context) {
-      setError('Canvas not available for image capture.');
-      return;
-    }
-    
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       setError('Video dimensions not available. Please ensure camera is working.');
       return;
     }
-    
+
     try {
-      console.log('Capturing photo with dimensions:', video.videoWidth, 'x', video.videoHeight);
-      
-      // Set canvas dimensions to match video
+      console.log('Starting verification process...');
+      setStep('processing');
+      setError('');
+
+      // Capture 3 frames
+      const frames: string[] = [];
+      const context = canvas.getContext('2d');
+      if (!context) return;
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
-      // Clear canvas
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Save the current transform
-      context.save();
-      
-      // Flip horizontally for mirror effect (like a selfie)
-      context.scale(-1, 1);
-      context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-      
-      // Restore the transform
-      context.restore();
-      
-      // Get the image data URL with good quality
-      const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      
-      // Validate the captured image
-      if (imageDataUrl && imageDataUrl.length > 1000) { // Basic validation
-        setCapturedImage(imageDataUrl);
-        console.log('Photo captured successfully, size:', imageDataUrl.length, 'bytes');
-        
-        // Stop the video stream
-        if (stream) {
-          stream.getTracks().forEach(track => {
-            track.stop();
-            console.log('Camera track stopped');
+
+      for (let i = 0; i < 3; i++) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        frames.push(canvas.toDataURL('image/jpeg', 0.8));
+        await new Promise(resolve => setTimeout(resolve, 200)); // 200ms delay
+      }
+
+      // Stop stream
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+      }
+      setCameraReady(false);
+      setCapturedImage(frames[0]); // Show first frame
+
+      // Call API
+      const result = await api.verification.complete(aadhaar || "123456789012", frames);
+
+      if (result.success) {
+        setSuccess(true);
+        // Store token if needed, or app logic handles it
+        // The result has constituency_no
+        setTimeout(() => {
+          onSuccess({
+            constituencyNo: result.constituency_no,
+            voterId: result.voter_id,
+            token: result.token
           });
+        }, 2000);
+      } else if (result.stage === 'already_voted') {
+        // Handle already voted case - show dedicated screen
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
           setStream(null);
         }
-        
-        setCameraReady(false);
-        setStep('processing');
-        
-        // Simulate face verification processing
-        setTimeout(() => {
-          setSuccess(true);
-          
-          setTimeout(() => {
-            onSuccess();
-          }, 2000);
-        }, 3000);
+        setAlreadyVotedInfo({ votedAt: result.voted_at || '' });
+        setStep('already_voted');
       } else {
-        throw new Error('Failed to generate image data');
+        throw new Error(result.message || "Verification failed");
       }
-    } catch (err) {
-      console.error('Error capturing photo:', err);
-      setError('Unable to capture image. Please ensure the camera is working properly and try again.');
+
+    } catch (err: any) {
+      console.error('Error verifying:', err);
+      // Show dedicated screens for different failure types
+      if (err.message && (err.message.includes('Spoof') || err.message.includes('Liveness check failed'))) {
+        setStep('spoof_detected');
+      } else if (err.message && (err.message.includes('Face verification failed') || err.message.includes('similarity') || err.message.includes('match') || err.message.includes('Match'))) {
+        setStep('face_not_matched');
+      } else {
+        setError(err.message || 'Verification process failed. Please try again.');
+        setStep('instructions');
+        startCamera();
+      }
     }
   };
 
@@ -241,7 +221,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
     setStep('instructions');
     setSuccess(false);
     setError('');
-    
+
     // Clean up video stream
     if (stream) {
       stream.getTracks().forEach(track => {
@@ -250,12 +230,168 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
       });
       setStream(null);
     }
-    
+
     // Clean up video element
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
   };
+
+  // Format the voted_at timestamp for display
+  const formatVotedTime = (isoString: string) => {
+    if (!isoString) return 'Unknown time';
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleString('en-IN', {
+        dateStyle: 'full',
+        timeStyle: 'short',
+        timeZone: 'Asia/Kolkata'
+      });
+    } catch {
+      return isoString;
+    }
+  };
+
+  // Already voted screen
+  if (step === 'already_voted') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
+          <div className="bg-white rounded-b-lg shadow-xl p-8 text-center">
+            <div className="bg-blue-100 p-4 rounded-full inline-block mb-6">
+              <CheckCircle className="w-12 h-12 text-blue-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">You Have Already Voted</h2>
+            <p className="text-gray-600 mb-4">
+              Your vote has been securely recorded on the blockchain.
+            </p>
+            {alreadyVotedInfo?.votedAt && (
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <p className="text-sm text-gray-500 mb-1">Vote cast on:</p>
+                <p className="text-lg font-semibold text-gray-800">
+                  {formatVotedTime(alreadyVotedInfo.votedAt)}
+                </p>
+              </div>
+            )}
+            <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6 rounded-md text-left">
+              <p className="text-sm text-green-700">
+                <strong>Thank you for participating!</strong> Your vote contributes to the democratic process.
+              </p>
+            </div>
+            <button
+              onClick={onBack}
+              className="w-full bg-gradient-to-r from-orange-500 to-green-600 hover:from-orange-600 hover:to-green-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300"
+            >
+              Return to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Spoof detected screen
+  if (step === 'spoof_detected') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
+          <div className="bg-white rounded-b-lg shadow-xl p-8 text-center">
+            <div className="bg-red-100 p-4 rounded-full inline-block mb-6">
+              <AlertCircle className="w-12 h-12 text-red-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-red-700 mb-4">Spoof Detected!</h2>
+            <p className="text-gray-600 mb-4">
+              Our security system detected that you may be using a photo or video instead of your real face.
+            </p>
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-md text-left">
+              <p className="text-sm text-red-700 mb-2">
+                <strong>For security reasons, verification failed.</strong>
+              </p>
+              <p className="text-sm text-red-600">
+                Please ensure you are presenting your real face directly to the camera, not a photo or screen.
+              </p>
+            </div>
+            <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6 rounded-md text-left">
+              <p className="text-sm text-amber-800 font-medium mb-2">Tips for successful verification:</p>
+              <ul className="text-sm text-amber-700 space-y-1">
+                <li>• Use your real face, not a photo</li>
+                <li>• Ensure good lighting conditions</li>
+                <li>• Face the camera directly</li>
+                <li>• Remove any obstructions</li>
+              </ul>
+            </div>
+            <button
+              onClick={() => {
+                setStep('instructions');
+                setError('');
+                startCamera();
+              }}
+              className="w-full bg-gradient-to-r from-orange-500 to-green-600 hover:from-orange-600 hover:to-green-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Face not matched screen
+  if (step === 'face_not_matched') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
+          <div className="bg-white rounded-b-lg shadow-xl p-8 text-center">
+            <div className="bg-orange-100 p-4 rounded-full inline-block mb-6">
+              <AlertCircle className="w-12 h-12 text-orange-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-orange-700 mb-4">Face Not Matched</h2>
+            <p className="text-gray-600 mb-4">
+              Your face does not match the registered voter profile for this Aadhaar number.
+            </p>
+            <div className="bg-orange-50 border-l-4 border-orange-400 p-4 mb-6 rounded-md text-left">
+              <p className="text-sm text-orange-700 mb-2">
+                <strong>Identity verification failed.</strong>
+              </p>
+              <p className="text-sm text-orange-600">
+                Please ensure you are the registered voter associated with this Aadhaar number.
+              </p>
+            </div>
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded-md text-left">
+              <p className="text-sm text-blue-800 font-medium mb-2">Possible reasons:</p>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Wrong Aadhaar number entered</li>
+                <li>• Poor lighting affecting face detection</li>
+                <li>• Significant appearance change since registration</li>
+                <li>• Camera angle or positioning issue</li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={onBack}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg transition-all duration-300"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={() => {
+                  setStep('instructions');
+                  setError('');
+                  startCamera();
+                }}
+                className="flex-1 bg-gradient-to-r from-orange-500 to-green-600 hover:from-orange-600 hover:to-green-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 'processing') {
     return (
@@ -272,9 +408,9 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
                 <p className="text-gray-600 mb-6">Identity confirmed. Redirecting to voting page...</p>
                 {capturedImage && (
                   <div className="mb-4">
-                    <img 
-                      src={capturedImage} 
-                      alt="Captured face" 
+                    <img
+                      src={capturedImage}
+                      alt="Captured face"
                       className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-green-500"
                     />
                   </div>
@@ -289,9 +425,9 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
                 <p className="text-gray-600 mb-6">Please wait while we process your verification...</p>
                 {capturedImage && (
                   <div className="mb-4">
-                    <img 
-                      src={capturedImage} 
-                      alt="Captured face" 
+                    <img
+                      src={capturedImage}
+                      alt="Captured face"
                       className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-blue-500"
                     />
                   </div>
@@ -331,7 +467,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ onSuccess, 
               Face Verification
             </h1>
             <p className="text-gray-600 text-center">
-              {step === 'instructions' 
+              {step === 'instructions'
                 ? 'Secure your vote with biometric verification'
                 : 'Position your face in the frame and click capture'
               }

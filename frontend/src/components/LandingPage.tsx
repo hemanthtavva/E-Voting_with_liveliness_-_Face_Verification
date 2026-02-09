@@ -5,9 +5,10 @@ import IndianFlagVotingLogo from './IndianFlagVotingLogo';
 interface LandingPageProps {
   onStart: () => void;
   onDebug?: () => void;
+  onAdminLogin?: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onStart, onDebug }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onStart, onDebug, onAdminLogin }) => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       {/* Header with Indian Flag Colors */}
@@ -28,7 +29,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onDebug }) => {
               Indian Election System
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Exercise your fundamental right to vote in a secure, transparent, and user-friendly digital environment. 
+              Exercise your fundamental right to vote in a secure, transparent, and user-friendly digital environment.
               Your voice matters in shaping India's future.
             </p>
           </div>
@@ -64,12 +65,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onDebug }) => {
               Secure • Transparent • Democratic
             </p>
             {onDebug && (
-              <button
-                onClick={onDebug}
-                className="mt-4 px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
-              >
-                🔧 Camera Debug
-              </button>
+              <div className="mt-4 flex justify-center space-x-4">
+                <button
+                  onClick={onDebug}
+                  className="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
+                >
+                  🔧 Camera Debug
+                </button>
+                {onAdminLogin && (
+                  <button
+                    onClick={onAdminLogin}
+                    className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-900 text-gray-200 rounded-md transition-colors"
+                  >
+                    🔐 Admin Portal
+                  </button>
+                )}
+              </div>
             )}
           </div>
 

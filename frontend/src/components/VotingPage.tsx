@@ -1,95 +1,113 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Vote, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import IndianFlagVotingLogo from './IndianFlagVotingLogo';
+import { api } from '../services/api';
 
 interface VotingPageProps {
   onVoteSubmit: () => void;
   onBack: () => void;
+  constituencyNo?: number;
+  voterId?: string;
+  token?: string;
 }
 
-interface PoliticalParty {
-  id: string;
+interface Candidate {
+  id: number;
   name: string;
-  symbol: string;
-  color: string;
-  leader: string;
+  party: string;
+  constituency_no?: number;
+  constituency_name?: string;
 }
 
-const politicalParties: PoliticalParty[] = [
-  { 
-    id: 'bjp', 
-    name: 'Bharatiya Janata Party', 
-    symbol: '🪷', 
-    color: 'bg-orange-100 border-orange-300 hover:bg-orange-200',
-    leader: 'Narendra Modi'
-  },
-  { 
-    id: 'congress', 
-    name: 'Indian National Congress', 
-    symbol: '✋', 
-    color: 'bg-blue-100 border-blue-300 hover:bg-blue-200',
-    leader: 'Rahul Gandhi'
-  },
-  { 
-    id: 'aap', 
-    name: 'Aam Aadmi Party', 
-    symbol: '🧹', 
-    color: 'bg-cyan-100 border-cyan-300 hover:bg-cyan-200',
-    leader: 'Arvind Kejriwal'
-  },
-  { 
-    id: 'sp', 
-    name: 'Samajwadi Party', 
-    symbol: '🚲', 
-    color: 'bg-red-100 border-red-300 hover:bg-red-200',
-    leader: 'Akhilesh Yadav'
-  },
-  { 
-    id: 'bsp', 
-    name: 'Bahujan Samaj Party', 
-    symbol: '🐘', 
-    color: 'bg-purple-100 border-purple-300 hover:bg-purple-200',
-    leader: 'Mayawati'
-  },
-  { 
-    id: 'tmc', 
-    name: 'All India Trinamool Congress', 
-    symbol: '🌸', 
-    color: 'bg-teal-100 border-teal-300 hover:bg-teal-200',
-    leader: 'Mamata Banerjee'
-  },
-  { 
-    id: 'nota', 
-    name: 'None of the Above', 
-    symbol: '❌', 
-    color: 'bg-gray-100 border-gray-300 hover:bg-gray-200',
-    leader: 'NOTA'
-  },
-];
+const getPartySymbol = (party: string) => {
+  if (!party) return '🗳️';
+  const p = party.toLowerCase();
+  if (p.includes('bjp') || p.includes('bharatiya')) return '🪷';
+  if (p.includes('inc') || p.includes('congress')) return '✋';
+  if (p.includes('aap')) return '🧹';
+  if (p.includes('sp') || p.includes('samajwadi')) return '🚲';
+  if (p.includes('bsp')) return '🐘';
+  if (p.includes('tmc') || p.includes('trinamool')) return '🌸';
+  if (p.includes('cpi') || p.includes('communist')) return '☭';
+  if (p.includes('tdp') || p.includes('telugu')) return '🚲';
+  if (p.includes('ysrcp')) return '🚁'; // Fan symbol approximation or use text
+  if (p.includes('jsp')) return '🥛';
+  if (p.includes('nota')) return '❌';
+  return '🗳️';
+};
 
-const VotingPage: React.FC<VotingPageProps> = ({ onVoteSubmit, onBack }) => {
-  const [selectedParty, setSelectedParty] = useState<string>('');
+const VotingPage: React.FC<VotingPageProps> = ({ onVoteSubmit, onBack, constituencyNo, voterId, token }) => {
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<number | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handlePartySelect = (partyId: string) => {
-    setSelectedParty(partyId);
+  useEffect(() => {
+    const fetchCandidates = async () => {
+      try {
+        if (!constituencyNo) {
+          setLoading(false);
+          return;
+        }
+        const data = await api.vote.getCandidates(constituencyNo);
+        if (data && Array.isArray(data.candidates)) {
+          setCandidates(data.candidates);
+        } else {
+          console.error("Unexpected response format:", data);
+          setError("Failed to load candidates data.");
+        }
+      } catch (err) {
+        console.error("Failed to fetch candidates:", err);
+        setError("Unable to load candidates.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCandidates();
+  }, [constituencyNo]);
+
+  const handleCandidateSelect = (candidateId: number) => {
+    setSelectedCandidate(candidateId);
   };
 
-  const handleSubmitVote = () => {
-    if (!selectedParty) return;
-    setShowConfirmation(true);
-  };
+  const confirmVote = async () => {
+    if (!selectedCandidate || !token || !voterId) return;
 
-  const confirmVote = () => {
     setIsSubmitting(true);
-    // Simulate vote submission
-    setTimeout(() => {
-      onVoteSubmit();
-    }, 2000);
+    try {
+      const result = await api.vote.submitVote(token, voterId, selectedCandidate);
+      if (result.success) {
+        onVoteSubmit();
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Vote submission failed');
+      setShowConfirmation(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const selectedPartyData = politicalParties.find(party => party.id === selectedParty);
+  const selectedCandidateData = candidates.find(c => c.id === selectedCandidate);
+
+  const getPartyColor = (partyName: string) => {
+    if (!partyName) return 'bg-gray-100 border-gray-300 hover:bg-gray-200';
+    const name = partyName.toLowerCase();
+    if (name.includes('bjp') || name.includes('bharatiya')) return 'bg-orange-100 border-orange-300 hover:bg-orange-200';
+    if (name.includes('inc') || name.includes('congress')) return 'bg-blue-100 border-blue-300 hover:bg-blue-200';
+    if (name.includes('ysrcp')) return 'bg-blue-50 border-blue-200 hover:bg-blue-100';
+    if (name.includes('tdp')) return 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200';
+    if (name.includes('jsp')) return 'bg-red-50 border-red-200 hover:bg-red-100';
+    return 'bg-gray-100 border-gray-300 hover:bg-gray-200';
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading candidates...</div>;
+  }
 
   if (showConfirmation) {
     return (
@@ -102,22 +120,23 @@ const VotingPage: React.FC<VotingPageProps> = ({ onVoteSubmit, onBack }) => {
                 <IndianFlagVotingLogo size="md" />
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Confirm Your Vote</h2>
-              
-              {selectedPartyData && (
+
+              {selectedCandidateData && (
                 <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                  <div className="text-4xl mb-2">{selectedPartyData.symbol}</div>
-                  <h3 className="text-lg font-semibold text-gray-800">{selectedPartyData.name}</h3>
-                  <p className="text-sm text-gray-600 mt-1">Leader: {selectedPartyData.leader}</p>
+                  <div className="text-4xl mb-2">{getPartySymbol(selectedCandidateData.party)}</div>
+                  <h3 className="text-lg font-semibold text-gray-800">{selectedCandidateData.party}</h3>
+                  <p className="text-sm text-gray-600 mt-1">Candidate: {selectedCandidateData.name}</p>
                 </div>
               )}
+
+              {error && <p className="text-red-500 mb-4">{error}</p>}
 
               <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-md">
                 <div className="flex items-start">
                   <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5" />
                   <div>
                     <p className="text-sm text-red-700">
-                      <strong>Important:</strong> Once submitted, your vote cannot be changed. 
-                      Please review your selection carefully.
+                      <strong>Important:</strong> Once submitted, your vote cannot be changed.
                     </p>
                   </div>
                 </div>
@@ -160,60 +179,52 @@ const VotingPage: React.FC<VotingPageProps> = ({ onVoteSubmit, onBack }) => {
           </button>
 
           <div className="mb-8">
-            <div className="flex items-center justify-center mb-6">
-              <div className="bg-gradient-to-r from-orange-500 to-green-600 p-3 rounded-full">
-                <IndianFlagVotingLogo size="md" />
-              </div>
-            </div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-800 text-center mb-2">
               Cast Your Vote
             </h1>
             <p className="text-gray-600 text-center">
-              Select your preferred candidate by clicking on their party symbol
+              Constituency #{constituencyNo}
             </p>
+            {error && <p className="text-center text-red-500 mt-2">{error}</p>}
           </div>
 
           <div className="grid gap-4 mb-8">
-            {politicalParties.map((party) => (
+            {candidates.map((candidate) => (
               <button
-                key={party.id}
-                onClick={() => handlePartySelect(party.id)}
-                className={`w-full p-6 border-2 rounded-xl transition-all duration-300 ${
-                  selectedParty === party.id
-                    ? 'border-green-500 bg-green-50 shadow-lg scale-105'
-                    : party.color
-                } hover:shadow-md hover:scale-102 transform`}
+                key={candidate.id}
+                onClick={() => handleCandidateSelect(candidate.id)}
+                className={`w-full p-6 border-2 rounded-xl transition-all duration-300 ${selectedCandidate === candidate.id
+                  ? 'border-green-500 bg-green-50 shadow-lg scale-105'
+                  : getPartyColor(candidate.party)
+                  } hover:shadow-md hover:scale-102 transform`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <div className="text-3xl">{party.symbol}</div>
+                    <div className="text-3xl">{getPartySymbol(candidate.party)}</div>
                     <div className="text-left">
-                      <h3 className="font-semibold text-gray-800 text-lg">{party.name}</h3>
-                      <p className="text-sm text-gray-600">Leader: {party.leader}</p>
+                      <h3 className="font-semibold text-gray-800 text-lg">{candidate.party}</h3>
+                      <p className="text-sm text-gray-600">{candidate.name}</p>
                     </div>
                   </div>
-                  {selectedParty === party.id && (
+                  {selectedCandidate === candidate.id && (
                     <CheckCircle className="w-6 h-6 text-green-600" />
                   )}
                 </div>
               </button>
             ))}
+            {candidates.length === 0 && !loading && (
+              <p className="text-center text-gray-500">No candidates found for this constituency.</p>
+            )}
           </div>
 
           <div className="border-t pt-6">
             <button
-              onClick={handleSubmitVote}
-              disabled={!selectedParty}
+              onClick={() => setShowConfirmation(true)}
+              disabled={!selectedCandidate}
               className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-4 px-8 rounded-lg text-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
             >
-              {selectedParty ? 'Submit Vote' : 'Select a Party to Continue'}
+              {selectedCandidate ? 'Submit Vote' : 'Select a Party to Continue'}
             </button>
-            
-            {selectedParty && (
-              <p className="text-sm text-gray-500 text-center mt-3">
-                Your vote is encrypted and anonymous
-              </p>
-            )}
           </div>
         </div>
       </div>

@@ -5,11 +5,16 @@ import FaceVerificationPage from './components/FaceVerificationPage';
 import VotingPage from './components/VotingPage';
 import ConfirmationPage from './components/ConfirmationPage';
 import CameraDebug from './components/CameraDebug';
+import AdminLogin from './components/admin/AdminLogin';
+import AdminDashboard from './components/admin/AdminDashboard';
 
-type PageType = 'landing' | 'auth' | 'face-verification' | 'voting' | 'confirmation' | 'camera-debug';
+type PageType = 'landing' | 'auth' | 'face-verification' | 'voting' | 'confirmation' | 'camera-debug' | 'admin-login' | 'admin-dashboard';
 
 interface UserData {
   aadhaar: string;
+  constituencyNo: number;
+  voterId: string;
+  token: string;
   otpVerified: boolean;
   faceVerified: boolean;
   hasVoted: boolean;
@@ -19,6 +24,9 @@ function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('landing');
   const [userData, setUserData] = useState<UserData>({
     aadhaar: '',
+    constituencyNo: 0,
+    voterId: '',
+    token: '',
     otpVerified: false,
     faceVerified: false,
     hasVoted: false
@@ -36,9 +44,23 @@ function App() {
     switch (currentPage) {
       case 'landing':
         return (
-          <LandingPage 
+          <LandingPage
             onStart={() => navigateToPage('auth')}
             onDebug={() => navigateToPage('camera-debug')}
+            onAdminLogin={() => navigateToPage('admin-login')}
+          />
+        );
+      case 'admin-login':
+        return (
+          <AdminLogin
+            onLoginSuccess={() => navigateToPage('admin-dashboard')}
+            onBack={() => navigateToPage('landing')}
+          />
+        );
+      case 'admin-dashboard':
+        return (
+          <AdminDashboard
+            onLogout={() => navigateToPage('landing')}
           />
         );
       case 'auth':
@@ -54,8 +76,14 @@ function App() {
       case 'face-verification':
         return (
           <FaceVerificationPage
-            onSuccess={() => {
-              updateUserData({ faceVerified: true });
+            aadhaar={userData.aadhaar}
+            onSuccess={(data) => {
+              updateUserData({
+                faceVerified: true,
+                constituencyNo: data.constituencyNo,
+                voterId: data.voterId,
+                token: data.token
+              });
               navigateToPage('voting');
             }}
             onBack={() => navigateToPage('auth')}
@@ -69,12 +97,18 @@ function App() {
               navigateToPage('confirmation');
             }}
             onBack={() => navigateToPage('face-verification')}
+            constituencyNo={userData.constituencyNo}
+            token={userData.token}
+            voterId={userData.voterId}
           />
         );
       case 'confirmation':
         return <ConfirmationPage onRestart={() => {
           setUserData({
             aadhaar: '',
+            constituencyNo: 0,
+            voterId: '',
+            token: '',
             otpVerified: false,
             faceVerified: false,
             hasVoted: false
@@ -84,7 +118,7 @@ function App() {
       case 'camera-debug':
         return (
           <div className="p-4">
-            <button 
+            <button
               onClick={() => navigateToPage('landing')}
               className="mb-4 px-4 py-2 bg-gray-500 text-white rounded"
             >

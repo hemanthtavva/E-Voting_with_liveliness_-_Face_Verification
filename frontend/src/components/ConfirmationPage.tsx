@@ -13,7 +13,7 @@ const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ onRestart }) => {
   useEffect(() => {
     setShowConfetti(true);
     setAnimateFlag(true);
-    
+
     const timer = setTimeout(() => {
       setShowConfetti(false);
     }, 3000);
@@ -29,9 +29,8 @@ const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ onRestart }) => {
           {[...Array(50)].map((_, i) => (
             <div
               key={i}
-              className={`absolute w-2 h-2 ${
-                i % 3 === 0 ? 'bg-orange-500' : i % 3 === 1 ? 'bg-white' : 'bg-green-500'
-              } animate-ping`}
+              className={`absolute w-2 h-2 ${i % 3 === 0 ? 'bg-orange-500' : i % 3 === 1 ? 'bg-white' : 'bg-green-500'
+                } animate-ping`}
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
@@ -55,7 +54,7 @@ const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ onRestart }) => {
               Thank You for Voting!
             </h1>
             <p className="text-lg text-gray-600 mb-6">
-              Your vote has been successfully recorded and encrypted. 
+              Your vote has been successfully recorded and encrypted.
               You have exercised your fundamental democratic right!
             </p>
           </div>
@@ -120,15 +119,7 @@ const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ onRestart }) => {
         </div>
       </div>
 
-      <style jsx>{`
-        @keyframes wave {
-          0%, 100% { transform: rotate(-5deg); }
-          50% { transform: rotate(5deg); }
-        }
-        .animate-wave {
-          animation: wave 2s ease-in-out infinite;
-        }
-      `}</style>
+
     </div>
   );
 };
