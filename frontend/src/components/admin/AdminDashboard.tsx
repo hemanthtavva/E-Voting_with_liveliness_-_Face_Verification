@@ -5,10 +5,31 @@ import {
     LogOut,
     Activity,
     BarChart3,
-    Search
+    Search,
+    CheckCircle,
+    XCircle,
+    RefreshCw
 } from 'lucide-react';
 import VoterRegistration from './VoterRegistration';
 import { api } from '../../services/api';
+
+interface Voter {
+    voter_id: string;
+    name: string;
+    aadhaar_number: string;
+    phone_number: string;
+    constituency_no: number;
+    has_voted: boolean;
+    voted_at?: string;
+}
+
+interface ResultCandidate {
+    candidate_id: number;
+    candidate_name: string;
+    party: string;
+    votes: number;
+    percentage: number;
+}
 
 interface AdminDashboardProps {
     onLogout: () => void;
@@ -23,6 +44,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         voters_voted: 0,
         registration_complete: false
     });
+    const [voters, setVoters] = useState<Voter[]>([]);
+    const [votersLoading, setVotersLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [results, setResults] = useState<ResultCandidate[]>([]);
+    const [resultsLoading, setResultsLoading] = useState(false);
 
     const username = localStorage.getItem('admin_username') || 'Admin';
 
@@ -30,12 +56,52 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         loadStats();
     }, []);
 
+    useEffect(() => {
+        if (currentView === 'voters') {
+            loadVoters();
+        } else if (currentView === 'results') {
+            loadResults();
+        }
+    }, [currentView]);
+
     const loadStats = async () => {
         try {
             const data = await api.admin.getStats();
             setStats(data);
         } catch (err) {
             console.error('Failed to load stats');
+        }
+    };
+
+    const loadVoters = async () => {
+        setVotersLoading(true);
+        try {
+            const data = await api.admin.getVoters(undefined, searchQuery || undefined);
+            setVoters(data.voters || []);
+        } catch (err) {
+            console.error('Failed to load voters');
+        } finally {
+            setVotersLoading(false);
+        }
+    };
+
+    const loadResults = async () => {
+        setResultsLoading(true);
+        try {
+            const data = await api.admin.getResults();
+            // Map the response to our ResultCandidate format
+            const mappedResults = (data.top_candidates || []).map((c: any) => ({
+                candidate_id: c.candidate_id,
+                candidate_name: c.candidate_name,
+                party: c.party,
+                votes: c.vote_count || 0,
+                percentage: c.percentage || 0
+            }));
+            setResults(mappedResults);
+        } catch (err) {
+            console.error('Failed to load results');
+        } finally {
+            setResultsLoading(false);
         }
     };
 
@@ -49,6 +115,131 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         switch (currentView) {
             case 'register':
                 return <VoterRegistration onCancel={() => setCurrentView('stats')} />;
+            case 'voters':
+                return (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">Manage Voters</h2>
+                            <button
+                                onClick={loadVoters}
+                                className="flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                            >
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Refresh
+                            </button>
+                        </div>
+                        <div className="mb-4">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name or Aadhaar..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && loadVoters()}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        </div>
+                        {votersLoading ? (
+                            <div className="text-center py-8 text-gray-500">Loading voters...</div>
+                        ) : voters.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">No voters found</div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-gray-200">
+                                            <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Voter ID</th>
+                                            <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Name</th>
+                                            <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Aadhaar</th>
+                                            <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Constituency</th>
+                                            <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {voters.map((voter) => (
+                                            <tr key={voter.voter_id} className="border-b border-gray-100 hover:bg-gray-50">
+                                                <td className="py-3 px-4 text-sm text-gray-800">{voter.voter_id}</td>
+                                                <td className="py-3 px-4 text-sm text-gray-800">{voter.name}</td>
+                                                <td className="py-3 px-4 text-sm text-gray-600">
+                                                    {voter.aadhaar_number.slice(0, 4)}...{voter.aadhaar_number.slice(-4)}
+                                                </td>
+                                                <td className="py-3 px-4 text-sm text-gray-600">{voter.constituency_no}</td>
+                                                <td className="py-3 px-4">
+                                                    {voter.has_voted ? (
+                                                        <span className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                                                            <CheckCircle className="w-3 h-3 mr-1" />
+                                                            Voted
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                                                            <XCircle className="w-3 h-3 mr-1" />
+                                                            Not Voted
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                );
+            case 'results':
+                return (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">Election Results</h2>
+                            <button
+                                onClick={loadResults}
+                                className="flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                            >
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Refresh
+                            </button>
+                        </div>
+                        {resultsLoading ? (
+                            <div className="text-center py-8 text-gray-500">Loading results...</div>
+                        ) : results.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                                <p>No results available yet</p>
+                                <p className="text-sm mt-2">Results will appear after votes are cast</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {results.map((candidate, index) => (
+                                    <div key={candidate.candidate_id} className="border border-gray-100 rounded-lg p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center">
+                                                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-400' : 'bg-gray-300'}`}>
+                                                    {index + 1}
+                                                </span>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800">{candidate.candidate_name}</p>
+                                                    <p className="text-sm text-gray-500">{candidate.party}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-2xl font-bold text-gray-800">{candidate.votes}</p>
+                                                <p className="text-sm text-gray-500">votes</p>
+                                            </div>
+                                        </div>
+                                        <div className="w-full bg-gray-100 rounded-full h-2">
+                                            <div
+                                                className={`h-2 rounded-full ${index === 0 ? 'bg-green-500' : 'bg-blue-400'}`}
+                                                style={{ width: `${candidate.percentage}%` }}
+                                            ></div>
+                                        </div>
+                                        <p className="text-right text-sm text-gray-500 mt-1">{candidate.percentage.toFixed(1)}%</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
             case 'stats':
             default:
                 return (

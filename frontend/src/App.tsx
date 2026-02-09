@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import LandingPage from './components/LandingPage';
 import AuthenticationPage from './components/AuthenticationPage';
 import FaceVerificationPage from './components/FaceVerificationPage';
 import VotingPage from './components/VotingPage';
 import ConfirmationPage from './components/ConfirmationPage';
-import CameraDebug from './components/CameraDebug';
 import AdminLogin from './components/admin/AdminLogin';
 import AdminDashboard from './components/admin/AdminDashboard';
 
-type PageType = 'landing' | 'auth' | 'face-verification' | 'voting' | 'confirmation' | 'camera-debug' | 'admin-login' | 'admin-dashboard';
+type PageType = 'landing' | 'auth' | 'face-verification' | 'voting' | 'confirmation' | 'admin-login' | 'admin-dashboard';
 
 interface UserData {
   aadhaar: string;
@@ -46,7 +45,6 @@ function App() {
         return (
           <LandingPage
             onStart={() => navigateToPage('auth')}
-            onDebug={() => navigateToPage('camera-debug')}
             onAdminLogin={() => navigateToPage('admin-login')}
           />
         );
@@ -115,18 +113,6 @@ function App() {
           });
           navigateToPage('landing');
         }} />;
-      case 'camera-debug':
-        return (
-          <div className="p-4">
-            <button
-              onClick={() => navigateToPage('landing')}
-              className="mb-4 px-4 py-2 bg-gray-500 text-white rounded"
-            >
-              Back to App
-            </button>
-            <CameraDebug />
-          </div>
-        );
       default:
         return <LandingPage onStart={() => navigateToPage('auth')} />;
     }

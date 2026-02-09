@@ -265,6 +265,28 @@ async def submit_vote(request: VoteSubmitRequest):
         except Exception as e:
             print(f"Error updating voter status: {e}")
     
+    # Step 5: Store vote in votes.json for results tracking
+    votes_file = settings.base_dir.parent / "data" / "votes.json"
+    try:
+        votes = []
+        if votes_file.exists():
+            with open(votes_file, 'r') as f:
+                votes = json.load(f)
+        
+        votes.append({
+            "candidate_id": request.candidate_id,
+            "constituency_no": constituency_no,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "vote_hash": vote_hash[:16] if vote_hash else "simulated"
+        })
+        
+        with open(votes_file, 'w') as f:
+            json.dump(votes, f, indent=2)
+        
+        print(f"✅ Vote stored in votes.json")
+    except Exception as e:
+        print(f"Error storing vote: {e}")
+    
     return VoteSubmitResponse(
         success=True,
         message="Vote cast successfully. Securely stored on blockchain.",

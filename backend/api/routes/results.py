@@ -81,31 +81,93 @@ async def get_overall_results():
     - Party-wise vote distribution
     - Top candidates by vote count
     
-    Data is fetched from the blockchain for accuracy.
+    Data is fetched from votes.json and candidates.csv.
     Requires admin authentication.
     """
-    # TODO: Query blockchain for vote counts
-    # from database.blockchain import Blockchain
-    # blockchain = Blockchain()
-    # results = aggregate_votes(blockchain)
+    import json
+    import csv
+    from collections import Counter
     
-    # Placeholder data
+    settings = get_settings()
+    votes_file = settings.base_dir.parent / "data" / "votes.json"
+    voters_file = settings.base_dir.parent / "data" / "voters.json"
+    candidates_file = settings.base_dir.parent / "database" / "candidates.csv"
+    
+    # Load votes
+    votes = []
+    if votes_file.exists():
+        try:
+            with open(votes_file, 'r') as f:
+                votes = json.load(f)
+        except:
+            votes = []
+    
+    # Load voters for total count
+    total_voters = 0
+    if voters_file.exists():
+        try:
+            with open(voters_file, 'r') as f:
+                voters = json.load(f)
+                total_voters = len(voters)
+        except:
+            pass
+    
+    # Load candidates (same logic as voting.py)
+    candidates_map = {}
+    if candidates_file.exists():
+        try:
+            with open(candidates_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                candidate_id = 1
+                for row in reader:
+                    candidates_map[candidate_id] = {
+                        'name': row['Candidate'],
+                        'party': row['Party'],
+                        'constituency_no': int(row['Constituency No'])
+                    }
+                    candidate_id += 1
+        except Exception as e:
+            print(f"Error loading candidates: {e}")
+    
+    # Count votes per candidate
+    vote_counts = Counter(v['candidate_id'] for v in votes)
+    total_votes = len(votes)
+    
+    # Count votes per party
+    party_counts = Counter()
+    for candidate_id, count in vote_counts.items():
+        if candidate_id in candidates_map:
+            party = candidates_map[candidate_id]['party']
+            party_counts[party] += count
+    
+    # Build top candidates list
+    top_candidates = []
+    for candidate_id, count in vote_counts.most_common(10):
+        if candidate_id in candidates_map:
+            candidate = candidates_map[candidate_id]
+            percentage = (count / total_votes * 100) if total_votes > 0 else 0
+            top_candidates.append(CandidateResult(
+                candidate_id=candidate_id,
+                candidate_name=candidate['name'],
+                party=candidate['party'],
+                vote_count=count,
+                percentage=round(percentage, 2)
+            ))
+    
+    # Get unique constituencies with votes
+    constituencies_with_votes = len(set(v['constituency_no'] for v in votes))
+    
+    turnout = (total_votes / total_voters * 100) if total_voters > 0 else 0
+    
     return OverallResults(
-        total_votes_cast=0,
-        total_registered_voters=0,
-        turnout_percentage=0.0,
-        constituencies_reported=0,
+        total_votes_cast=total_votes,
+        total_registered_voters=total_voters,
+        turnout_percentage=round(turnout, 2),
+        constituencies_reported=constituencies_with_votes,
         total_constituencies=175,
         last_updated=datetime.now(),
-        party_wise={
-            "TDP": 0,
-            "YSRCP": 0,
-            "INC": 0,
-            "BJY": 0,
-            "Others": 0,
-            "NOTA": 0
-        },
-        top_candidates=[]
+        party_wise=dict(party_counts),
+        top_candidates=top_candidates
     )
 
 

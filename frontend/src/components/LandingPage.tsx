@@ -1,14 +1,13 @@
 import React from 'react';
-import { Vote, Shield, Users, CheckCircle } from 'lucide-react';
+import { Shield, Users, CheckCircle } from 'lucide-react';
 import IndianFlagVotingLogo from './IndianFlagVotingLogo';
 
 interface LandingPageProps {
   onStart: () => void;
-  onDebug?: () => void;
   onAdminLogin?: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onStart, onDebug, onAdminLogin }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onStart, onAdminLogin }) => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       {/* Header with Indian Flag Colors */}
@@ -64,22 +63,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onDebug, onAdminLogi
             <p className="text-sm text-gray-500 mt-4">
               Secure • Transparent • Democratic
             </p>
-            {onDebug && (
-              <div className="mt-4 flex justify-center space-x-4">
+            {onAdminLogin && (
+              <div className="mt-4 flex justify-center">
                 <button
-                  onClick={onDebug}
-                  className="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
+                  onClick={onAdminLogin}
+                  className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-900 text-gray-200 rounded-md transition-colors"
                 >
-                  🔧 Camera Debug
+                  🔐 Admin Portal
                 </button>
-                {onAdminLogin && (
-                  <button
-                    onClick={onAdminLogin}
-                    className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-900 text-gray-200 rounded-md transition-colors"
-                  >
-                    🔐 Admin Portal
-                  </button>
-                )}
               </div>
             )}
           </div>

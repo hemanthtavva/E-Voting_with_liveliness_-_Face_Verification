@@ -102,6 +102,25 @@ export const api = {
                 headers: getHeaders(),
             });
             return response.json();
+        },
+
+        getVoters: async (constituency?: number, search?: string) => {
+            let url = `${API_BASE}/admin/voters?`;
+            if (constituency) url += `constituency=${constituency}&`;
+            if (search) url += `search=${encodeURIComponent(search)}`;
+            const response = await fetch(url, {
+                headers: getHeaders(),
+            });
+            return response.json();
+        },
+
+        getResults: async (constituencyNo?: number) => {
+            let url = `${API_BASE}/results/overall`;
+            if (constituencyNo) url = `${API_BASE}/results/constituency/${constituencyNo}`;
+            const response = await fetch(url, {
+                headers: getHeaders(),
+            });
+            return response.json();
         }
     },
 
