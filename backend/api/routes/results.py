@@ -56,6 +56,7 @@ class OverallResults(BaseModel):
     last_updated: datetime
     party_wise: dict  # Party name -> total votes
     top_candidates: List[CandidateResult]
+    constituency_results: List[ConstituencyResult] = []
 
 
 class BlockchainStats(BaseModel):
@@ -154,6 +155,51 @@ async def get_overall_results():
                 percentage=round(percentage, 2)
             ))
     
+    # Build constituency-wise results
+    # Group votes by constituency
+    from collections import defaultdict
+    constituency_votes = defaultdict(Counter)  # constituency_no -> {candidate_id: count}
+    for v in votes:
+        constituency_votes[v['constituency_no']][v['candidate_id']] += 1
+    
+    # Build constituency name map from candidates
+    constituency_names = {}
+    if candidates_file.exists():
+        try:
+            with open(candidates_file, 'r', encoding='utf-8') as f2:
+                reader2 = csv.DictReader(f2)
+                for row in reader2:
+                    cno = int(row['Constituency No'])
+                    if cno not in constituency_names:
+                        constituency_names[cno] = row['Constituency Name']
+        except:
+            pass
+    
+    constituency_results = []
+    for const_no in sorted(constituency_votes.keys()):
+        const_total = sum(constituency_votes[const_no].values())
+        const_candidates = []
+        for cand_id, cand_count in constituency_votes[const_no].most_common():
+            if cand_id in candidates_map:
+                cand = candidates_map[cand_id]
+                pct = (cand_count / const_total * 100) if const_total > 0 else 0
+                const_candidates.append(CandidateResult(
+                    candidate_id=cand_id,
+                    candidate_name=cand['name'],
+                    party=cand['party'],
+                    vote_count=cand_count,
+                    percentage=round(pct, 2)
+                ))
+        
+        winner = const_candidates[0] if const_candidates else None
+        constituency_results.append(ConstituencyResult(
+            constituency_no=const_no,
+            constituency_name=constituency_names.get(const_no, f"Constituency {const_no}"),
+            total_votes=const_total,
+            candidates=const_candidates,
+            winner=winner
+        ))
+    
     # Get unique constituencies with votes
     constituencies_with_votes = len(set(v['constituency_no'] for v in votes))
     
@@ -167,7 +213,8 @@ async def get_overall_results():
         total_constituencies=175,
         last_updated=datetime.now(),
         party_wise=dict(party_counts),
-        top_candidates=top_candidates
+        top_candidates=top_candidates,
+        constituency_results=constituency_results
     )
 
 

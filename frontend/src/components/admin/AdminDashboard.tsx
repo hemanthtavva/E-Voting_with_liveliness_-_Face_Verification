@@ -8,7 +8,11 @@ import {
     Search,
     CheckCircle,
     XCircle,
-    RefreshCw
+    RefreshCw,
+    Trophy,
+    ChevronDown,
+    ChevronUp,
+    Vote
 } from 'lucide-react';
 import VoterRegistration from './VoterRegistration';
 import { api } from '../../services/api';
@@ -31,6 +35,23 @@ interface ResultCandidate {
     percentage: number;
 }
 
+interface ConstituencyResultData {
+    constituency_no: number;
+    constituency_name: string;
+    total_votes: number;
+    candidates: ResultCandidate[];
+    winner?: ResultCandidate | null;
+}
+
+interface OverallResultsData {
+    total_votes_cast: number;
+    total_registered_voters: number;
+    turnout_percentage: number;
+    constituencies_reported: number;
+    constituency_results: ConstituencyResultData[];
+    top_candidates: ResultCandidate[];
+}
+
 interface AdminDashboardProps {
     onLogout: () => void;
 }
@@ -47,8 +68,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     const [voters, setVoters] = useState<Voter[]>([]);
     const [votersLoading, setVotersLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [results, setResults] = useState<ResultCandidate[]>([]);
+    const [overallResults, setOverallResults] = useState<OverallResultsData | null>(null);
     const [resultsLoading, setResultsLoading] = useState(false);
+    const [showResults, setShowResults] = useState(false);
+    const [expandedConstituency, setExpandedConstituency] = useState<number | null>(null);
 
     const username = localStorage.getItem('admin_username') || 'Admin';
 
@@ -89,15 +112,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         setResultsLoading(true);
         try {
             const data = await api.admin.getResults();
-            // Map the response to our ResultCandidate format
-            const mappedResults = (data.top_candidates || []).map((c: any) => ({
-                candidate_id: c.candidate_id,
-                candidate_name: c.candidate_name,
-                party: c.party,
-                votes: c.vote_count || 0,
-                percentage: c.percentage || 0
-            }));
-            setResults(mappedResults);
+            const mapped: OverallResultsData = {
+                total_votes_cast: data.total_votes_cast || 0,
+                total_registered_voters: data.total_registered_voters || 0,
+                turnout_percentage: data.turnout_percentage || 0,
+                constituencies_reported: data.constituencies_reported || 0,
+                top_candidates: (data.top_candidates || []).map((c: any) => ({
+                    candidate_id: c.candidate_id,
+                    candidate_name: c.candidate_name,
+                    party: c.party,
+                    votes: c.vote_count || 0,
+                    percentage: c.percentage || 0
+                })),
+                constituency_results: (data.constituency_results || []).map((cr: any) => ({
+                    constituency_no: cr.constituency_no,
+                    constituency_name: cr.constituency_name,
+                    total_votes: cr.total_votes,
+                    winner: cr.winner ? {
+                        candidate_id: cr.winner.candidate_id,
+                        candidate_name: cr.winner.candidate_name,
+                        party: cr.winner.party,
+                        votes: cr.winner.vote_count || 0,
+                        percentage: cr.winner.percentage || 0
+                    } : null,
+                    candidates: (cr.candidates || []).map((c: any) => ({
+                        candidate_id: c.candidate_id,
+                        candidate_name: c.candidate_name,
+                        party: c.party,
+                        votes: c.vote_count || 0,
+                        percentage: c.percentage || 0
+                    }))
+                }))
+            };
+            setOverallResults(mapped);
         } catch (err) {
             console.error('Failed to load results');
         } finally {
@@ -189,53 +236,156 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 );
             case 'results':
                 return (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-gray-800">Election Results</h2>
-                            <button
-                                onClick={loadResults}
-                                className="flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                            >
-                                <RefreshCw className="w-4 h-4 mr-2" />
-                                Refresh
-                            </button>
-                        </div>
-                        {resultsLoading ? (
-                            <div className="text-center py-8 text-gray-500">Loading results...</div>
-                        ) : results.length === 0 ? (
-                            <div className="text-center py-8 text-gray-500">
-                                <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                                <p>No results available yet</p>
-                                <p className="text-sm mt-2">Results will appear after votes are cast</p>
+                    <div className="space-y-6">
+                        {/* Summary Stats Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-gray-500 text-sm font-medium">Total Registered Voters</h3>
+                                    <Users className="w-5 h-5 text-blue-500" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-800">
+                                    {overallResults?.total_registered_voters ?? '—'}
+                                </p>
                             </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {results.map((candidate, index) => (
-                                    <div key={candidate.candidate_id} className="border border-gray-100 rounded-lg p-4">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center">
-                                                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-400' : 'bg-gray-300'}`}>
-                                                    {index + 1}
-                                                </span>
-                                                <div>
-                                                    <p className="font-semibold text-gray-800">{candidate.candidate_name}</p>
-                                                    <p className="text-sm text-gray-500">{candidate.party}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-2xl font-bold text-gray-800">{candidate.votes}</p>
-                                                <p className="text-sm text-gray-500">votes</p>
-                                            </div>
-                                        </div>
-                                        <div className="w-full bg-gray-100 rounded-full h-2">
-                                            <div
-                                                className={`h-2 rounded-full ${index === 0 ? 'bg-green-500' : 'bg-blue-400'}`}
-                                                style={{ width: `${candidate.percentage}%` }}
-                                            ></div>
-                                        </div>
-                                        <p className="text-right text-sm text-gray-500 mt-1">{candidate.percentage.toFixed(1)}%</p>
+                            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-gray-500 text-sm font-medium">Votes Polled</h3>
+                                    <Vote className="w-5 h-5 text-green-500" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-800">
+                                    {overallResults?.total_votes_cast ?? '—'}
+                                </p>
+                            </div>
+                            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-gray-500 text-sm font-medium">Turnout</h3>
+                                    <BarChart3 className="w-5 h-5 text-purple-500" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-800">
+                                    {overallResults ? `${overallResults.turnout_percentage}%` : '—'}
+                                </p>
+                            </div>
+                            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-gray-500 text-sm font-medium">Constituencies Reported</h3>
+                                    <Activity className="w-5 h-5 text-orange-500" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-800">
+                                    {overallResults?.constituencies_reported ?? '—'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Calculate Results Button */}
+                        {!showResults && (
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+                                <BarChart3 className="w-16 h-16 mx-auto mb-4 text-blue-400" />
+                                <h3 className="text-lg font-semibold text-gray-800 mb-2">Election Results</h3>
+                                <p className="text-gray-500 mb-6">Click below to calculate and display constituency-wise election results</p>
+                                <button
+                                    onClick={() => {
+                                        setShowResults(true);
+                                        loadResults();
+                                    }}
+                                    disabled={resultsLoading}
+                                    className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300"
+                                >
+                                    {resultsLoading ? 'Calculating...' : '📊 Calculate Results'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Constituency-wise Results */}
+                        {showResults && (
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-xl font-bold text-gray-800">Constituency-wise Results</h2>
+                                    <button
+                                        onClick={loadResults}
+                                        className="flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                    >
+                                        <RefreshCw className="w-4 h-4 mr-2" />
+                                        Refresh
+                                    </button>
+                                </div>
+                                {resultsLoading ? (
+                                    <div className="text-center py-8 text-gray-500">Calculating results...</div>
+                                ) : !overallResults || overallResults.constituency_results.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                                        <p>No votes have been cast yet</p>
                                     </div>
-                                ))}
+                                ) : (
+                                    <div className="space-y-3">
+                                        {overallResults.constituency_results.map((constituency) => (
+                                            <div key={constituency.constituency_no} className="border border-gray-200 rounded-lg overflow-hidden">
+                                                {/* Constituency Header (clickable) */}
+                                                <button
+                                                    onClick={() => setExpandedConstituency(
+                                                        expandedConstituency === constituency.constituency_no ? null : constituency.constituency_no
+                                                    )}
+                                                    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                                                >
+                                                    <div className="flex items-center">
+                                                        <span className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm mr-3">
+                                                            {constituency.constituency_no}
+                                                        </span>
+                                                        <div className="text-left">
+                                                            <p className="font-semibold text-gray-800">{constituency.constituency_name}</p>
+                                                            <p className="text-sm text-gray-500">{constituency.total_votes} votes polled</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        {constituency.winner && (
+                                                            <span className="hidden sm:flex items-center px-3 py-1 bg-green-50 text-green-700 text-sm rounded-full mr-3">
+                                                                <Trophy className="w-3 h-3 mr-1" />
+                                                                {constituency.winner.candidate_name}
+                                                            </span>
+                                                        )}
+                                                        {expandedConstituency === constituency.constituency_no
+                                                            ? <ChevronUp className="w-5 h-5 text-gray-400" />
+                                                            : <ChevronDown className="w-5 h-5 text-gray-400" />
+                                                        }
+                                                    </div>
+                                                </button>
+
+                                                {/* Expanded Candidate List */}
+                                                {expandedConstituency === constituency.constituency_no && (
+                                                    <div className="border-t border-gray-200 p-4 bg-gray-50">
+                                                        <div className="space-y-3">
+                                                            {constituency.candidates.map((candidate, idx) => (
+                                                                <div key={candidate.candidate_id} className="bg-white rounded-lg p-3 border border-gray-100">
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <div className="flex items-center">
+                                                                            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold mr-3 ${idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : 'bg-gray-300'}`}>
+                                                                                {idx + 1}
+                                                                            </span>
+                                                                            <div>
+                                                                                <p className="font-medium text-gray-800 text-sm">{candidate.candidate_name}</p>
+                                                                                <p className="text-xs text-gray-500">{candidate.party}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="text-right">
+                                                                            <p className="text-lg font-bold text-gray-800">{candidate.votes}</p>
+                                                                            <p className="text-xs text-gray-500">{candidate.percentage.toFixed(1)}%</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                                                        <div
+                                                                            className={`h-1.5 rounded-full ${idx === 0 ? 'bg-green-500' : 'bg-blue-400'}`}
+                                                                            style={{ width: `${candidate.percentage}%` }}
+                                                                        ></div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
