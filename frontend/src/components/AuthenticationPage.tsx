@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Smartphone, Shield, AlertCircle, CheckCircle } from 'lucide-react';
 import IndianFlagVotingLogo from './IndianFlagVotingLogo';
+import { api } from '../services/api';
 
 interface AuthenticationPageProps {
   onSuccess: (aadhaar: string) => void;
@@ -37,13 +38,16 @@ const AuthenticationPage: React.FC<AuthenticationPageProps> = ({ onSuccess, onBa
     setLoading(true);
     setError('');
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await api.auth.sendOTP(aadhaar);
       setLoading(false);
       setOtpSent(true);
       setStep('otp');
       setCountdown(30);
-    }, 2000);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || 'Failed to send OTP. Please try again.');
+    }
   };
 
   const handleOtpSubmit = async () => {
@@ -55,27 +59,34 @@ const AuthenticationPage: React.FC<AuthenticationPageProps> = ({ onSuccess, onBa
     setLoading(true);
     setError('');
 
-    // Simulate OTP verification
-    setTimeout(() => {
+    try {
+      const result = await api.auth.verifyOTP(aadhaar, otp);
       setLoading(false);
-      if (otp === '123456') {
+      if (result.success) {
         onSuccess(aadhaar);
       } else {
-        setError('Invalid OTP. Please try again.');
+        setError(result.message || 'Invalid OTP. Please try again.');
       }
-    }, 1500);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || 'Failed to verify OTP. Please try again.');
+    }
   };
 
-  const resendOtp = () => {
-    setCountdown(30);
-    setOtpSent(true);
+  const resendOtp = async () => {
     setError('');
-    // Simulate resend API call
+    try {
+      await api.auth.sendOTP(aadhaar);
+      setCountdown(30);
+      setOtpSent(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend OTP. Please try again.');
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-lg">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
         <div className="bg-white rounded-b-lg shadow-xl p-8">
@@ -176,10 +187,7 @@ const AuthenticationPage: React.FC<AuthenticationPageProps> = ({ onSuccess, onBa
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl tracking-widest"
                   maxLength={6}
                 />
-                <div className="flex justify-between items-center mt-2">
-                  <p className="text-xs text-gray-500">
-                    Demo OTP: 123456
-                  </p>
+                <div className="flex justify-end items-center mt-2">
                   {countdown > 0 ? (
                     <p className="text-xs text-gray-500">
                       Resend in {countdown}s

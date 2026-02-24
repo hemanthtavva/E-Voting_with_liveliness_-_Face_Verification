@@ -11,7 +11,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onAdminLogin }) => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       {/* Header with Indian Flag Colors */}
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-3xl">
         <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg shadow-lg"></div>
         <div className="bg-white rounded-b-lg shadow-xl p-8 md:p-12">
           {/* Welcome Section */}

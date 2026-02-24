@@ -256,7 +256,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ aadhaar, on
   if (step === 'already_voted') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-2xl">
           <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
           <div className="bg-white rounded-b-lg shadow-xl p-8 text-center">
             <div className="bg-blue-100 p-4 rounded-full inline-block mb-6">
@@ -295,7 +295,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ aadhaar, on
   if (step === 'spoof_detected') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-2xl">
           <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
           <div className="bg-white rounded-b-lg shadow-xl p-8 text-center">
             <div className="bg-red-100 p-4 rounded-full inline-block mb-6">
@@ -342,7 +342,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ aadhaar, on
   if (step === 'face_not_matched') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-2xl">
           <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
           <div className="bg-white rounded-b-lg shadow-xl p-8 text-center">
             <div className="bg-orange-100 p-4 rounded-full inline-block mb-6">
@@ -396,7 +396,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ aadhaar, on
   if (step === 'processing') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-2xl">
           <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
           <div className="bg-white rounded-b-lg shadow-xl p-8 text-center">
             {success ? (
@@ -442,7 +442,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ aadhaar, on
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-2xl">
         <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
         <div className="bg-white rounded-b-lg shadow-xl p-8">
           <button
@@ -519,7 +519,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ aadhaar, on
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-64 object-cover"
+                  className="w-full h-96 object-cover"
                   style={{ transform: 'scaleX(-1)' }} // Mirror effect for selfie
                   onLoadedMetadata={() => console.log('Video metadata loaded event')}
                   onCanPlay={() => console.log('Video can play event')}
@@ -541,7 +541,7 @@ const FaceVerificationPage: React.FC<FaceVerificationPageProps> = ({ aadhaar, on
                   </div>
                 </div>
                 {/* Face outline guide */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-48 border-2 border-green-400 rounded-full opacity-50"></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-56 border-2 border-green-400 rounded-full opacity-50"></div>
               </div>
 
               <div className="flex space-x-4">

@@ -69,6 +69,41 @@ export const api = {
             } catch {
                 return false;
             }
+        },
+
+        sendOTP: async (aadhaar: string) => {
+            const response = await fetch(`${API_BASE}/auth/send-otp`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ aadhaar }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to send OTP');
+            }
+
+            return response.json();
+        },
+
+        verifyOTP: async (aadhaar: string, otp: string) => {
+            const response = await fetch(`${API_BASE}/auth/verify-otp`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ aadhaar, otp }),
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.detail || 'Failed to verify OTP');
+            }
+
+            return data;
         }
     },
 

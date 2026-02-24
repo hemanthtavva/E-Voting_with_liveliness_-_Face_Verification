@@ -42,7 +42,7 @@ const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ onRestart }) => {
         </div>
       )}
 
-      <div className="w-full max-w-lg z-10">
+      <div className="w-full max-w-2xl z-10">
         <div className={`bg-gradient-to-r from-orange-500 via-white to-green-600 h-3 rounded-t-lg ${animateFlag ? 'animate-pulse' : ''}`}></div>
         <div className="bg-white rounded-b-lg shadow-2xl p-8 md:p-12">
           {/* Success Icon */}

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=Path(__file__).parent / ".env",
         env_file_encoding="utf-8",
         extra="ignore"
     )
@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # Face Recognition
     face_similarity_threshold: float = 0.5
     registered_faces_dir: str = "../data/registered_faces"
+    
+    # Twilio OTP Configuration
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_phone_number: str = ""
     
     @property
     def cors_origins_list(self) -> List[str]:

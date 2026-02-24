@@ -205,6 +205,7 @@ async def register_voter(
     voters_db[aadhaar_number] = {
         "voter_id": voter_id,
         "name": name,
+        "phone_number": phone_number,
         "constituency_no": constituency_no,
         "has_voted": False,
         "registered_at": datetime.now().isoformat()
@@ -278,7 +279,7 @@ async def list_voters(
                     id=idx,
                     name=info.get("name", ""),
                     aadhaar_number=aadhaar,
-                    phone_number="",  # Not stored in current JSON
+                    phone_number=info.get("phone_number", ""),
                     voter_id=info.get("voter_id", ""),
                     constituency_no=info.get("constituency_no", 0),
                     has_voted=info.get("has_voted", False),

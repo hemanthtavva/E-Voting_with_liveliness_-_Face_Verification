@@ -5,10 +5,13 @@ Endpoints:
 - POST /api/auth/login - Admin login with JWT token
 - POST /api/auth/logout - Invalidate session (client-side)
 - GET /api/auth/verify - Verify JWT token validity
+- POST /api/auth/send-otp - Send OTP to voter's phone
+- POST /api/auth/verify-otp - Verify OTP code
 """
 
 from datetime import timedelta
 from typing import Optional
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -22,6 +25,7 @@ from auth import (
     verify_token
 )
 from settings import get_settings
+from services.otp_service import get_otp_service
 
 
 router = APIRouter()
@@ -50,6 +54,30 @@ class VerifyResponse(BaseModel):
     """Token verification response."""
     valid: bool
     username: Optional[str] = None
+    message: str
+
+
+class SendOTPRequest(BaseModel):
+    """Request to send OTP."""
+    aadhaar: str
+
+
+class SendOTPResponse(BaseModel):
+    """Response after sending OTP."""
+    success: bool
+    message: str
+    expires_in: Optional[int] = None
+
+
+class VerifyOTPRequest(BaseModel):
+    """Request to verify OTP."""
+    aadhaar: str
+    otp: str
+
+
+class VerifyOTPResponse(BaseModel):
+    """Response after verifying OTP."""
+    success: bool
     message: str
 
 
@@ -162,3 +190,134 @@ async def verify(
         username=token_data.username,
         message="Token is valid"
     )
+
+
+@router.post("/send-otp", response_model=SendOTPResponse)
+async def send_otp(request: SendOTPRequest):
+    """
+    Send OTP to voter's registered phone number.
+    
+    This endpoint:
+    1. Validates the Aadhaar number
+    2. Looks up the voter's phone number from voters.json
+    3. Sends a 6-digit OTP via Twilio SMS
+    4. Stores the OTP with 5-minute expiry
+    
+    Example:
+    ```
+    POST /api/auth/send-otp
+    {
+        "aadhaar": "123456789012"
+    }
+    
+    Response:
+    {
+        "success": true,
+        "message": "OTP sent successfully",
+        "expires_in": 300
+    }
+    ```
+    """
+    settings = get_settings()
+    voters_file = settings.base_dir.parent / "data" / "voters.json"
+    
+    # Validate Aadhaar format
+    if not request.aadhaar or len(request.aadhaar) != 12 or not request.aadhaar.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Aadhaar number format"
+        )
+    
+    # Load voters data
+    if not voters_file.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Voter not found. Please register first."
+        )
+    
+    try:
+        with open(voters_file, 'r') as f:
+            voters = json.load(f)
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error loading voter data"
+        )
+    
+    # Find voter by Aadhaar (voters.json is a dict with aadhaar as key)
+    voter = voters.get(request.aadhaar)
+    
+    if not voter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Voter not found. Please register first."
+        )
+    
+    # Get phone number
+    phone_number = voter.get('phone_number')
+    if not phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No phone number registered for this voter"
+        )
+    
+    # Ensure phone number is in E.164 format
+    if not phone_number.startswith('+'):
+        phone_number = '+91' + phone_number  # Assume India if no country code
+    
+    # Send OTP via Twilio
+    otp_service = get_otp_service()
+    result = otp_service.send_otp(phone_number, request.aadhaar)
+    
+    if not result['success']:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result['message']
+        )
+    
+    return SendOTPResponse(**result)
+
+
+@router.post("/verify-otp", response_model=VerifyOTPResponse)
+async def verify_otp(request: VerifyOTPRequest):
+    """
+    Verify the OTP code sent to voter's phone.
+    
+    This endpoint:
+    1. Validates the OTP format
+    2. Checks if OTP matches and hasn't expired
+    3. Allows up to 3 verification attempts
+    
+    Example:
+    ```
+    POST /api/auth/verify-otp
+    {
+        "aadhaar": "123456789012",
+        "otp": "123456"
+    }
+    
+    Response:
+    {
+        "success": true,
+        "message": "OTP verified successfully"
+    }
+    ```
+    """
+    # Validate inputs
+    if not request.aadhaar or len(request.aadhaar) != 12 or not request.aadhaar.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Aadhaar number format"
+        )
+    
+    if not request.otp or len(request.otp) != 6 or not request.otp.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP format"
+        )
+    
+    # Verify OTP
+    otp_service = get_otp_service()
+    result = otp_service.verify_otp(request.aadhaar, request.otp)
+    
+    return VerifyOTPResponse(**result)

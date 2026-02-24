@@ -94,17 +94,6 @@ const VotingPage: React.FC<VotingPageProps> = ({ onVoteSubmit, onBack, constitue
 
   const selectedCandidateData = candidates.find(c => c.id === selectedCandidate);
 
-  const getPartyColor = (partyName: string) => {
-    if (!partyName) return 'bg-gray-100 border-gray-300 hover:bg-gray-200';
-    const name = partyName.toLowerCase();
-    if (name.includes('bjp') || name.includes('bharatiya')) return 'bg-orange-100 border-orange-300 hover:bg-orange-200';
-    if (name.includes('inc') || name.includes('congress')) return 'bg-blue-100 border-blue-300 hover:bg-blue-200';
-    if (name.includes('ysrcp')) return 'bg-blue-50 border-blue-200 hover:bg-blue-100';
-    if (name.includes('tdp')) return 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200';
-    if (name.includes('jsp')) return 'bg-red-50 border-red-200 hover:bg-red-100';
-    return 'bg-gray-100 border-gray-300 hover:bg-gray-200';
-  };
-
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading candidates...</div>;
   }
@@ -112,7 +101,7 @@ const VotingPage: React.FC<VotingPageProps> = ({ onVoteSubmit, onBack, constitue
   if (showConfirmation) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-lg">
           <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
           <div className="bg-white rounded-b-lg shadow-xl p-8">
             <div className="text-center">
@@ -167,7 +156,7 @@ const VotingPage: React.FC<VotingPageProps> = ({ onVoteSubmit, onBack, constitue
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-3xl">
         <div className="bg-gradient-to-r from-orange-500 via-white to-green-600 h-2 rounded-t-lg"></div>
         <div className="bg-white rounded-b-lg shadow-xl p-8">
           <button
@@ -189,17 +178,20 @@ const VotingPage: React.FC<VotingPageProps> = ({ onVoteSubmit, onBack, constitue
           </div>
 
           <div className="grid gap-4 mb-8">
-            {candidates.map((candidate) => (
+            {candidates.map((candidate, index) => (
               <button
                 key={candidate.id}
                 onClick={() => handleCandidateSelect(candidate.id)}
                 className={`w-full p-6 border-2 rounded-xl transition-all duration-300 ${selectedCandidate === candidate.id
-                  ? 'border-green-500 bg-green-50 shadow-lg scale-105'
-                  : getPartyColor(candidate.party)
+                  ? 'border-blue-500 bg-blue-50 shadow-lg scale-105'
+                  : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
                   } hover:shadow-md hover:scale-102 transform`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-700 font-bold text-lg">
+                      {index + 1}
+                    </div>
                     <div className="text-3xl">{getPartySymbol(candidate.party)}</div>
                     <div className="text-left">
                       <h3 className="font-semibold text-gray-800 text-lg">{candidate.party}</h3>
@@ -207,7 +199,7 @@ const VotingPage: React.FC<VotingPageProps> = ({ onVoteSubmit, onBack, constitue
                     </div>
                   </div>
                   {selectedCandidate === candidate.id && (
-                    <CheckCircle className="w-6 h-6 text-green-600" />
+                    <CheckCircle className="w-6 h-6 text-blue-600" />
                   )}
                 </div>
               </button>
