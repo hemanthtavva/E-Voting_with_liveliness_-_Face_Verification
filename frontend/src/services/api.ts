@@ -81,8 +81,7 @@ export const api = {
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Failed to send OTP');
+                throw new Error('Failed to send OTP. Please try again.');
             }
 
             return response.json();

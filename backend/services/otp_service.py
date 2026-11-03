@@ -6,11 +6,15 @@ Handles sending and verifying OTP codes via SMS using Twilio.
 
 import random
 import json
+import logging
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional, Dict
 from twilio.rest import Client
 from settings import get_settings
+
+
+logger = logging.getLogger(__name__)
+OTP_SEND_FAILURE_MESSAGE = "Failed to send OTP. Please try again."
 
 
 class OTPService:
@@ -106,11 +110,11 @@ class OTPService:
                 'expires_in': self.otp_expiry_minutes * 60
             }
             
-        except Exception as e:
-            print(f"❌ Error sending OTP: {e}")
+        except Exception:
+            logger.exception("Error sending OTP via Twilio")
             return {
                 'success': False,
-                'message': f'Failed to send OTP: {str(e)}'
+                'message': OTP_SEND_FAILURE_MESSAGE
             }
     
     def verify_otp(self, aadhaar: str, otp_code: str) -> Dict:
