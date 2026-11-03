@@ -11,8 +11,7 @@ import {
     RefreshCw,
     Trophy,
     ChevronDown,
-    ChevronUp,
-    Vote
+    ChevronUp
 } from 'lucide-react';
 import VoterRegistration from './VoterRegistration';
 import { api } from '../../services/api';
@@ -251,7 +250,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                             <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                                 <div className="flex items-center justify-between mb-2">
                                     <h3 className="text-gray-500 text-sm font-medium">Votes Polled</h3>
-                                    <Vote className="w-5 h-5 text-green-500" />
+                                    <BarChart3 className="w-5 h-5 text-green-500" />
                                 </div>
                                 <p className="text-3xl font-bold text-gray-800">
                                     {overallResults?.total_votes_cast ?? '—'}
