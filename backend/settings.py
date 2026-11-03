@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     # Twilio OTP Configuration
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
+    twilio_api_key: str = ""
+    twilio_api_secret: str = ""
     twilio_phone_number: str = ""
     
     @property

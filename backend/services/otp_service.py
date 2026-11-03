@@ -23,10 +23,17 @@ class OTPService:
     def __init__(self):
         """Initialize Twilio client with credentials from settings."""
         settings = get_settings()
-        self.client = Client(
-            settings.twilio_account_sid,
-            settings.twilio_auth_token
-        )
+        if settings.twilio_api_key and settings.twilio_api_secret:
+            self.client = Client(
+                settings.twilio_api_key,
+                settings.twilio_api_secret,
+                account_sid=settings.twilio_account_sid
+            )
+        else:
+            self.client = Client(
+                settings.twilio_account_sid,
+                settings.twilio_auth_token
+            )
         self.from_number = settings.twilio_phone_number
         self.otp_storage_file = settings.base_dir.parent / "data" / "otp_storage.json"
         self.otp_expiry_minutes = 5
